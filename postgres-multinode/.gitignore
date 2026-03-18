@@ -1,0 +1,13 @@
+# Environment files with secrets
+.env
+node-*/.env
+
+# Generated config
+shared/db.json
+node-*/db.json
+
+# Traefik certificates
+acme.json
+
+# Docker volumes (if local)
+data/

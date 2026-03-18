@@ -1,0 +1,134 @@
+# =============================================================================
+# pgEdge Multi-Active Write Node - US East (us-east-1)
+# Node: n2
+#
+# Networking: Netbird VPN + Traefik TLS (both included)
+# - Netbird provides encrypted mesh VPN between all nodes
+# - Traefik provides TLS termination for external/application access
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Netbird VPN Client - Encrypted mesh network between all nodes
+  # ---------------------------------------------------------------------------
+  netbird:
+    image: netbirdio/netbird:latest
+    container_name: netbird-us-east
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_RESOURCE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.disable_ipv6=0
+    environment:
+      - NB_SETUP_KEY=${NETBIRD_SETUP_KEY}
+      - NB_MANAGEMENT_URL=${NETBIRD_MANAGEMENT_URL:-https://api.netbird.io}
+      - NB_HOSTNAME=node-us-east
+    volumes:
+      - netbird-config:/etc/netbird
+    networks:
+      - database
+
+  # ---------------------------------------------------------------------------
+  # Traefik Reverse Proxy - TLS termination + TCP routing
+  # ---------------------------------------------------------------------------
+  traefik:
+    image: traefik:v3.3
+    container_name: traefik-us-east
+    restart: unless-stopped
+    command:
+      - --api.dashboard=false
+      - --providers.docker=true
+      - --providers.docker.exposedByDefault=false
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.postgres.address=:5432
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --log.level=WARN
+    ports:
+      - "80:80"
+      - "443:443"
+      - "5432:5432"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certs:/letsencrypt
+      - ./traefik-dynamic:/etc/traefik/dynamic:ro
+    networks:
+      - traefik
+      - database
+
+  # ---------------------------------------------------------------------------
+  # pgEdge PostgreSQL Node - Multi-active write with Spock replication
+  # ---------------------------------------------------------------------------
+  pgedge:
+    image: pgedge/pgedge:pg16-latest
+    container_name: pgedge-us-east
+    restart: unless-stopped
+    hostname: pgedge-n2
+    volumes:
+      - pgedge-data:/data
+      - ./db.json:/opt/pgedge/conf/db.json:ro
+    environment:
+      - PGEDGE_NODE_NAME=n2
+    networks:
+      database:
+        aliases:
+          - pgedge-n2
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgedge -d defaultdb -p 5432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.tcp.routers.pgedge-us-east.rule=HostSNI(`${TRAEFIK_DOMAIN}`)"
+      - "traefik.tcp.routers.pgedge-us-east.entrypoints=postgres"
+      - "traefik.tcp.routers.pgedge-us-east.tls.certresolver=letsencrypt"
+      - "traefik.tcp.services.pgedge-us-east.loadbalancer.server.port=5432"
+
+  # ---------------------------------------------------------------------------
+  # pgCat - Connection Pooler
+  # ---------------------------------------------------------------------------
+  pgcat:
+    image: pgedge/pgcat:1.0
+    container_name: pgcat-us-east
+    restart: unless-stopped
+    depends_on:
+      pgedge:
+        condition: service_healthy
+    volumes:
+      - ./db.json:/opt/pgedge/conf/db.json:ro
+    environment:
+      - PGEDGE_NODE_NAME=n2
+    networks:
+      database:
+        aliases:
+          - pgcat-n2
+      traefik: {}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.tcp.routers.pgcat-us-east.rule=HostSNI(`n2.${TRAEFIK_DOMAIN}`)"
+      - "traefik.tcp.routers.pgcat-us-east.entrypoints=websecure"
+      - "traefik.tcp.routers.pgcat-us-east.tls=true"
+      - "traefik.tcp.routers.pgcat-us-east.tls.certresolver=letsencrypt"
+      - "traefik.tcp.services.pgcat-us-east.loadbalancer.server.port=6432"
+
+volumes:
+  pgedge-data:
+    driver: local
+  traefik-certs:
+    driver: local
+  netbird-config:
+    driver: local
+
+networks:
+  traefik:
+    name: traefik
+  database:
+    name: database

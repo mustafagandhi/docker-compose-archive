@@ -1,0 +1,59 @@
+{
+  "name": "defaultdb",
+  "port": 5432,
+  "options": ["autoddl:enabled"],
+  "nodes": [
+    {
+      "name": "n1",
+      "region": "ap-south-1",
+      "hostname": "${NODE_INDIA_HOSTNAME}"
+    },
+    {
+      "name": "n2",
+      "region": "us-east-1",
+      "hostname": "${NODE_US_EAST_HOSTNAME}"
+    },
+    {
+      "name": "n3",
+      "region": "ap-northeast-1",
+      "hostname": "${NODE_TOKYO_HOSTNAME}"
+    }
+  ],
+  "users": [
+    {
+      "username": "app",
+      "password": "${APP_PASSWORD}",
+      "superuser": false,
+      "service": "postgres",
+      "type": "application"
+    },
+    {
+      "username": "admin",
+      "password": "${ADMIN_PASSWORD}",
+      "superuser": true,
+      "service": "postgres",
+      "type": "admin"
+    },
+    {
+      "username": "pgedge",
+      "password": "${PGEDGE_PASSWORD}",
+      "superuser": true,
+      "service": "postgres",
+      "type": "internal_admin"
+    },
+    {
+      "username": "pgcat_auth",
+      "password": "${PGCAT_AUTH_PASSWORD}",
+      "superuser": false,
+      "service": "postgres",
+      "type": "pooler_auth"
+    },
+    {
+      "username": "pgcat_admin",
+      "password": "${PGCAT_ADMIN_PASSWORD}",
+      "superuser": false,
+      "service": "pgcat",
+      "type": "other"
+    }
+  ]
+}

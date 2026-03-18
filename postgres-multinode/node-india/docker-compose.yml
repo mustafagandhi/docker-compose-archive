@@ -1,0 +1,136 @@
+# =============================================================================
+# pgEdge Multi-Active Write Node - India (ap-south-1)
+# Node: n1
+#
+# Networking: Netbird VPN + Traefik TLS (both included)
+# - Netbird provides encrypted mesh VPN between all nodes
+# - Traefik provides TLS termination for external/application access
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Netbird VPN Client - Encrypted mesh network between all nodes
+  # ---------------------------------------------------------------------------
+  netbird:
+    image: netbirdio/netbird:latest
+    container_name: netbird-india
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_RESOURCE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.disable_ipv6=0
+    environment:
+      - NB_SETUP_KEY=${NETBIRD_SETUP_KEY}
+      - NB_MANAGEMENT_URL=${NETBIRD_MANAGEMENT_URL:-https://api.netbird.io}
+      - NB_HOSTNAME=node-india
+    volumes:
+      - netbird-config:/etc/netbird
+    networks:
+      - database
+
+  # ---------------------------------------------------------------------------
+  # Traefik Reverse Proxy - TLS termination + TCP routing
+  # ---------------------------------------------------------------------------
+  traefik:
+    image: traefik:v3.3
+    container_name: traefik-india
+    restart: unless-stopped
+    command:
+      - --api.dashboard=false
+      - --providers.docker=true
+      - --providers.docker.exposedByDefault=false
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.postgres.address=:5432
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --log.level=WARN
+    ports:
+      - "80:80"
+      - "443:443"
+      - "5432:5432"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certs:/letsencrypt
+      - ./traefik-dynamic:/etc/traefik/dynamic:ro
+    networks:
+      - traefik
+      - database
+
+  # ---------------------------------------------------------------------------
+  # pgEdge PostgreSQL Node - Multi-active write with Spock replication
+  # ---------------------------------------------------------------------------
+  pgedge:
+    image: pgedge/pgedge:pg16-latest
+    container_name: pgedge-india
+    restart: unless-stopped
+    hostname: pgedge-n1
+    volumes:
+      - pgedge-data:/data
+      - ./db.json:/opt/pgedge/conf/db.json:ro
+    environment:
+      - PGEDGE_NODE_NAME=n1
+    networks:
+      database:
+        aliases:
+          - pgedge-n1
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pgedge -d defaultdb -p 5432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      # TCP router for PostgreSQL connections via Traefik (TLS passthrough)
+      - "traefik.tcp.routers.pgedge-india.rule=HostSNI(`${TRAEFIK_DOMAIN}`)"
+      - "traefik.tcp.routers.pgedge-india.entrypoints=postgres"
+      - "traefik.tcp.routers.pgedge-india.tls.certresolver=letsencrypt"
+      - "traefik.tcp.services.pgedge-india.loadbalancer.server.port=5432"
+
+  # ---------------------------------------------------------------------------
+  # pgCat - Connection Pooler
+  # ---------------------------------------------------------------------------
+  pgcat:
+    image: pgedge/pgcat:1.0
+    container_name: pgcat-india
+    restart: unless-stopped
+    depends_on:
+      pgedge:
+        condition: service_healthy
+    volumes:
+      - ./db.json:/opt/pgedge/conf/db.json:ro
+    environment:
+      - PGEDGE_NODE_NAME=n1
+    networks:
+      database:
+        aliases:
+          - pgcat-n1
+      traefik: {}
+    labels:
+      - "traefik.enable=true"
+      # TCP router for pooled connections via SNI
+      - "traefik.tcp.routers.pgcat-india.rule=HostSNI(`n1.${TRAEFIK_DOMAIN}`)"
+      - "traefik.tcp.routers.pgcat-india.entrypoints=websecure"
+      - "traefik.tcp.routers.pgcat-india.tls=true"
+      - "traefik.tcp.routers.pgcat-india.tls.certresolver=letsencrypt"
+      - "traefik.tcp.services.pgcat-india.loadbalancer.server.port=6432"
+
+volumes:
+  pgedge-data:
+    driver: local
+  traefik-certs:
+    driver: local
+  netbird-config:
+    driver: local
+
+networks:
+  traefik:
+    name: traefik
+  database:
+    name: database
