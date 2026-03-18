@@ -1,53 +1,73 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Generates db.json from template using environment variables.
-# Run this ONCE before starting any node, then copy the generated db.json
-# to all three node directories.
+# Reads nodes.conf + .env, generates db.json for the cluster.
+# Output goes to stdout (pipe to file) or to path given as $1.
 #
-# Usage: ./generate-db-json.sh [output-path]
+# Usage:
+#   ./scripts/generate-db-json.sh                     # prints to stdout
+#   ./scripts/generate-db-json.sh node-a/db.json      # writes to file
+#   ./scripts/generate-db-json.sh --all                # writes to every node-* dir
 # =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-TEMPLATE="${PROJECT_DIR}/shared/db.json.template"
-OUTPUT="${1:-${PROJECT_DIR}/shared/db.json}"
+ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Source .env if available
-if [[ -f "${PROJECT_DIR}/.env" ]]; then
-  set -a
-  source "${PROJECT_DIR}/.env"
-  set +a
+# --- Load passwords from .env ---
+ENV_FILE="${ROOT}/.env"
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "ERROR: ${ENV_FILE} not found. Copy .env.example to .env and fill in passwords." >&2
+  exit 1
 fi
+set -a; source "$ENV_FILE"; set +a
 
-# Validate required variables
-required_vars=(
-  NODE_INDIA_HOSTNAME NODE_US_EAST_HOSTNAME NODE_TOKYO_HOSTNAME
-  APP_PASSWORD ADMIN_PASSWORD PGEDGE_PASSWORD
-  PGCAT_AUTH_PASSWORD PGCAT_ADMIN_PASSWORD
-)
-
-for var in "${required_vars[@]}"; do
-  if [[ -z "${!var:-}" || "${!var}" == CHANGE_ME* ]]; then
-    echo "ERROR: $var is not set or still has the default value." >&2
-    echo "       Please configure your .env file first." >&2
+for var in APP_PASSWORD ADMIN_PASSWORD PGEDGE_PASSWORD PGCAT_AUTH_PASSWORD PGCAT_ADMIN_PASSWORD; do
+  if [[ -z "${!var:-}" ]]; then
+    echo "ERROR: $var is empty in .env" >&2
     exit 1
   fi
 done
 
-# Generate db.json using envsubst
-envsubst < "$TEMPLATE" > "$OUTPUT"
+# --- Parse nodes.conf ---
+NODES_CONF="${ROOT}/nodes.conf"
+if [[ ! -f "$NODES_CONF" ]]; then
+  echo "ERROR: ${NODES_CONF} not found." >&2
+  exit 1
+fi
 
-echo "Generated: $OUTPUT"
-echo ""
-echo "Node hostnames configured:"
-echo "  India (n1):    ${NODE_INDIA_HOSTNAME}"
-echo "  US East (n2):  ${NODE_US_EAST_HOSTNAME}"
-echo "  Tokyo (n3):    ${NODE_TOKYO_HOSTNAME}"
-echo ""
-echo "Next steps:"
-echo "  1. Copy $OUTPUT to each node directory:"
-echo "     cp $OUTPUT ${PROJECT_DIR}/node-india/db.json"
-echo "     cp $OUTPUT ${PROJECT_DIR}/node-us-east/db.json"
-echo "     cp $OUTPUT ${PROJECT_DIR}/node-tokyo/db.json"
-echo "  2. Deploy each node's docker-compose.yml on its respective server."
+NODES_JSON=""
+FIRST=true
+while read -r name region hostname; do
+  [[ -z "$name" || "$name" == \#* ]] && continue
+  if $FIRST; then FIRST=false; else NODES_JSON+=","; fi
+  NODES_JSON+="
+    {\"name\": \"${name}\", \"region\": \"${region}\", \"hostname\": \"${hostname}\"}"
+done < "$NODES_CONF"
+
+if [[ -z "$NODES_JSON" ]]; then
+  echo "ERROR: No nodes found in nodes.conf" >&2
+  exit 1
+fi
+
+# --- Build db.json ---
+DB_JSON=$(cat "${ROOT}/db.json.template")
+DB_JSON="${DB_JSON//NODES_PLACEHOLDER/$NODES_JSON}"
+DB_JSON="${DB_JSON//APP_PASSWORD_PLACEHOLDER/$APP_PASSWORD}"
+DB_JSON="${DB_JSON//ADMIN_PASSWORD_PLACEHOLDER/$ADMIN_PASSWORD}"
+DB_JSON="${DB_JSON//PGEDGE_PASSWORD_PLACEHOLDER/$PGEDGE_PASSWORD}"
+DB_JSON="${DB_JSON//PGCAT_AUTH_PASSWORD_PLACEHOLDER/$PGCAT_AUTH_PASSWORD}"
+DB_JSON="${DB_JSON//PGCAT_ADMIN_PASSWORD_PLACEHOLDER/$PGCAT_ADMIN_PASSWORD}"
+
+# --- Output ---
+if [[ "${1:-}" == "--all" ]]; then
+  for dir in "${ROOT}"/node-*/; do
+    [[ -d "$dir" ]] || continue
+    echo "$DB_JSON" > "${dir}/db.json"
+    echo "Wrote: ${dir}db.json"
+  done
+elif [[ -n "${1:-}" ]]; then
+  echo "$DB_JSON" > "$1"
+  echo "Wrote: $1"
+else
+  echo "$DB_JSON"
+fi

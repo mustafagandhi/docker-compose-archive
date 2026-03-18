@@ -1,19 +1,13 @@
 #!/usr/bin/env bash
-# =============================================================================
-# Generates secure random passwords for the deployment.
-# Outputs values suitable for pasting into your .env file.
-# =============================================================================
+# Generates secure random passwords. Paste output into .env.
 set -euo pipefail
 
-gen_password() {
-  openssl rand -base64 24 | tr -d '/+=' | head -c 24
-}
+gen() { openssl rand -base64 24 | tr -d '/+=' | head -c 24; }
 
 cat <<EOF
-# --- Generated Passwords (paste into your .env files) ---
-APP_PASSWORD=$(gen_password)
-ADMIN_PASSWORD=$(gen_password)
-PGEDGE_PASSWORD=$(gen_password)
-PGCAT_AUTH_PASSWORD=$(gen_password)
-PGCAT_ADMIN_PASSWORD=$(gen_password)
+APP_PASSWORD=$(gen)
+ADMIN_PASSWORD=$(gen)
+PGEDGE_PASSWORD=$(gen)
+PGCAT_AUTH_PASSWORD=$(gen)
+PGCAT_ADMIN_PASSWORD=$(gen)
 EOF
