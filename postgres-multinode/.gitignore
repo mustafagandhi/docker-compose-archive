@@ -1,0 +1,5 @@
+# Secrets
+.env
+
+# Generated deploy bundles (contain secrets in db.json)
+deploy/
