@@ -1,14 +1,20 @@
 # =============================================================================
-# pgEdge Node N — Nth node in the cluster (copy for each additional node)
+# pgEdge Multi-Active Write Node
+# =============================================================================
+# Every node in the cluster runs this same compose file.
+# The only difference per node is NODE_NAME in the .env file.
 #
-# Identical to Node A. To add a new node:
-#   1. Copy this directory to the new server
-#   2. Set NODE_NAME in .env to match this node's name in nodes.conf
-#   3. Ensure db.json is generated with this node included in nodes.conf
+# Deploy:
+#   1. Copy this directory to a server
+#   2. Set NODE_NAME in .env  (must match a name in nodes.conf)
+#   3. Place the generated db.json alongside this file
 #   4. docker compose up -d
 # =============================================================================
 
 services:
+  # PostgreSQL 16 with Spock multi-active write replication.
+  # Spock sets up bidirectional logical replication between all nodes
+  # listed in db.json. Every node can accept reads and writes.
   pgedge:
     image: pgedge/pgedge:pg16-latest
     container_name: pgedge-${NODE_NAME}
@@ -34,6 +40,8 @@ services:
       retries: 5
       start_period: 30s
 
+  # Connection pooler. Sits in front of pgEdge and provides
+  # connection pooling for application traffic.
   pgcat:
     image: pgedge/pgcat:1.0
     container_name: pgcat-${NODE_NAME}

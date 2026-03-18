@@ -2,15 +2,20 @@
 # =============================================================================
 # Check Spock replication status on a node.
 #
-# Usage: ./scripts/check-replication.sh [node-dir]
-#   e.g.: ./scripts/check-replication.sh node-a
-#         ./scripts/check-replication.sh          # defaults to node-a
+# Usage: ./scripts/check-replication.sh <node-name>
+#   e.g.: ./scripts/check-replication.sh n1
 # =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(dirname "$SCRIPT_DIR")"
-NODE_DIR="${ROOT}/${1:-node-a}"
+NODE="${1:?Usage: $0 <node-name> (e.g. n1)}"
+NODE_DIR="${ROOT}/deploy/${NODE}"
+
+if [[ ! -d "$NODE_DIR" ]]; then
+  echo "ERROR: ${NODE_DIR} does not exist. Run add-node.sh first." >&2
+  exit 1
+fi
 
 run_sql() {
   docker compose -f "$NODE_DIR/docker-compose.yml" exec -T pgedge \

@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
 # Reads nodes.conf + .env, generates db.json for the cluster.
-# Output goes to stdout (pipe to file) or to path given as $1.
 #
 # Usage:
-#   ./scripts/generate-db-json.sh                     # prints to stdout
-#   ./scripts/generate-db-json.sh node-a/db.json      # writes to file
-#   ./scripts/generate-db-json.sh --all                # writes to every node-* dir
+#   ./scripts/generate-db-json.sh                # prints to stdout
+#   ./scripts/generate-db-json.sh path/db.json   # writes to a specific file
+#   ./scripts/generate-db-json.sh --all           # writes to deploy/*/ dirs
 # =============================================================================
 set -euo pipefail
 
@@ -60,7 +59,7 @@ DB_JSON="${DB_JSON//PGCAT_ADMIN_PASSWORD_PLACEHOLDER/$PGCAT_ADMIN_PASSWORD}"
 
 # --- Output ---
 if [[ "${1:-}" == "--all" ]]; then
-  for dir in "${ROOT}"/node-*/; do
+  for dir in "${ROOT}"/deploy/*/; do
     [[ -d "$dir" ]] || continue
     echo "$DB_JSON" > "${dir}/db.json"
     echo "Wrote: ${dir}db.json"
