@@ -72,9 +72,15 @@ services:
     hostname: pgedge-n3
     volumes:
       - pgedge-data:/data
-      - ./db.json:/opt/pgedge/conf/db.json:ro
+    configs:
+      - source: db_config
+        target: /home/pgedge/db.json
+        uid: "1020"
+        gid: "1020"
+        mode: 0440
     environment:
-      - PGEDGE_NODE_NAME=n3
+      - NODE_NAME=n3
+      - PGDATA=/data/pgdata
     networks:
       database:
         aliases:
@@ -102,10 +108,14 @@ services:
     depends_on:
       pgedge:
         condition: service_healthy
-    volumes:
-      - ./db.json:/opt/pgedge/conf/db.json:ro
+    configs:
+      - source: db_config
+        target: /home/pgedge/db.json
+        uid: "1020"
+        gid: "1020"
+        mode: 0440
     environment:
-      - PGEDGE_NODE_NAME=n3
+      - NODE_NAME=n3
     networks:
       database:
         aliases:
@@ -118,6 +128,10 @@ services:
       - "traefik.tcp.routers.pgcat-tokyo.tls=true"
       - "traefik.tcp.routers.pgcat-tokyo.tls.certresolver=letsencrypt"
       - "traefik.tcp.services.pgcat-tokyo.loadbalancer.server.port=6432"
+
+configs:
+  db_config:
+    file: ./db.json
 
 volumes:
   pgedge-data:
