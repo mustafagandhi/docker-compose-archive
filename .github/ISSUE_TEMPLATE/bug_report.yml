@@ -1,0 +1,93 @@
+name: Bug Report
+description: Report a stack that is broken or misbehaving
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem! Please fill out the
+        fields below so we can reproduce and fix the issue.
+
+  - type: dropdown
+    id: stack
+    attributes:
+      label: Which stack is affected?
+      description: Select the stack folder that is misbehaving.
+      options:
+        - postgres
+        - postgres-pgvector
+        - postgres-multinode
+        - mongo
+        - mongo-express
+        - redis
+        - redisinsight
+        - pgadmin
+        - traefik-komodo
+        - other
+    validations:
+      required: true
+
+  - type: input
+    id: docker-version
+    attributes:
+      label: Docker version
+      description: Output of `docker --version`
+      placeholder: "Docker version 27.3.1, build ce12230"
+    validations:
+      required: true
+
+  - type: input
+    id: compose-version
+    attributes:
+      label: Docker Compose version
+      description: Output of `docker compose version`
+      placeholder: "Docker Compose version v2.29.7"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: The OS you are running the stack on
+      placeholder: "Ubuntu 24.04 LTS / macOS 15 / Windows 11 (WSL2)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the problem you ran into.
+      placeholder: The postgres container fails its health check after startup...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen instead?
+      placeholder: The container should become healthy and accept connections.
+    validations:
+      required: true
+
+  - type: textarea
+    id: error-output
+    attributes:
+      label: Error output / logs
+      description: |
+        Paste relevant logs, e.g. `docker compose ps`, `docker compose logs <service>`.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Redaction check
+      description: Logs often contain generated credentials. Confirm before submitting.
+      options:
+        - label: I have redacted all secrets, passwords, and real hostnames from my report.
+          required: true

@@ -1,0 +1,48 @@
+name: Stack Request
+description: Request a new Docker Compose stack recipe
+title: "[Stack Request]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Want a new stack added to the template? Tell us what you need.
+        Please check the existing stacks and open issues first to avoid duplicates.
+
+  - type: input
+    id: app-name
+    attributes:
+      label: Application name
+      description: What application should the stack run?
+      placeholder: "e.g. MinIO, n8n, Grafana"
+    validations:
+      required: true
+
+  - type: input
+    id: app-link
+    attributes:
+      label: Application link / docs URL
+      description: Link to the project's homepage, docs, or official container image.
+      placeholder: "https://min.io/docs or https://hub.docker.com/r/minio/minio"
+    validations:
+      required: true
+
+  - type: textarea
+    id: why-useful
+    attributes:
+      label: Why is this stack useful?
+      description: |
+        Describe the use case. What does the app do, and why does it belong in
+        this template collection?
+      placeholder: I use MinIO as an S3-compatible object store for backups...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: help-test
+    attributes:
+      label: Willingness to help
+      description: Stack requests move faster when the requester can test a draft.
+      options:
+        - label: I am willing to help test a draft of this stack.
+          required: false

@@ -1,0 +1,81 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Validate docker-compose.yml files parse as YAML
+        run: |
+          python - <<'EOF'
+          import glob
+          import sys
+
+          import yaml
+
+          failed = False
+          files = sorted(glob.glob("*/docker-compose.yml"))
+          if not files:
+              print("No */docker-compose.yml files found!")
+              sys.exit(1)
+          for path in files:
+              try:
+                  with open(path, "r", encoding="utf-8") as f:
+                      yaml.safe_load(f)
+                  print(f"OK: {path}")
+              except yaml.YAMLError as exc:
+                  print(f"INVALID YAML: {path}\n{exc}")
+                  failed = True
+          if failed:
+              sys.exit(1)
+          EOF
+
+      - name: Syntax-check all shell scripts
+        run: |
+          failed=0
+          while IFS= read -r script; do
+            if ! bash -n "$script"; then
+              echo "BASH SYNTAX ERROR: $script"
+              failed=1
+            else
+              echo "OK: $script"
+            fi
+          done < <(git ls-files '*.sh')
+          exit $failed
+
+      - name: Guard against committed private keys
+        run: |
+          if grep -rInE --exclude-dir=.git 'BEGIN (RSA |OPENSSH |)PRIVATE KEY' .; then
+            echo "ERROR: committed private key material found"
+            exit 1
+          fi
+          echo "OK: no private key material found"
+
+      - name: Guard against hardcoded passwords in compose files
+        run: |
+          # Fail on lines like `PASSWORD: somevalue` / `PASSWORD=somevalue`
+          # where the value is a literal (does not reference a ${...} variable).
+          if grep -rInE --include='docker-compose.yml' --exclude-dir=.git \
+              'PASSWORD[:=][[:space:]]*[A-Za-z0-9]' . \
+            | grep -vF '$'; then
+            echo "ERROR: hardcoded password literal found in a docker-compose.yml"
+            exit 1
+          fi
+          echo "OK: no hardcoded password literals found"
