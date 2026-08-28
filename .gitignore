@@ -1,0 +1,15 @@
+# Secrets — never commit generated credentials
+.env
+*.env
+!.env.example
+
+# Generated deploy bundles (postgres-multinode)
+postgres-multinode/deploy/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/

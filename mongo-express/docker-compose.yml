@@ -1,0 +1,45 @@
+# Mongo Express — MongoDB Web Management UI
+# Shared across all projects. Connects to any MongoDB on any network.
+#
+# Before pasting into Komodo:
+#   Add all app networks this Mongo Express needs access to under 'networks'
+#   Set ME_CONFIG_MONGODB_URL to point at the target MongoDB container
+
+services:
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo-express
+    restart: unless-stopped
+    environment:
+      ME_CONFIG_MONGODB_URL: ${ME_CONFIG_MONGODB_URL:-mongodb://myapp-mongo-dev:27017}
+      ME_CONFIG_BASICAUTH: "true"
+      ME_CONFIG_BASICAUTH_USERNAME: ${ME_CONFIG_BASICAUTH_USERNAME:-admin}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${ME_CONFIG_BASICAUTH_PASSWORD}
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy"
+      traefik.http.routers.mongo-express.rule: "Host(`mongo.example.com`)"
+      traefik.http.routers.mongo-express.entrypoints: "websecure"
+      traefik.http.routers.mongo-express.middlewares: "secure-headers@file"
+      traefik.http.services.mongo-express.loadbalancer.server.port: "8081"
+    logging:
+      driver: json-file
+      options: {max-size: "50m", max-file: "2"}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - proxy
+      - myapp
+      # Add more app networks as needed:
+      # - shop
+      # - cms
+
+volumes: {}
+
+networks:
+  proxy:
+    external: true
+  myapp:
+    external: true

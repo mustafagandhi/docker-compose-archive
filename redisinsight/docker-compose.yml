@@ -1,0 +1,45 @@
+# RedisInsight — Redis Web Management UI
+# Shared across all projects. Connects to any Redis on any network.
+#
+# Before pasting into Komodo:
+#   Add all app networks this RedisInsight needs access to under 'networks'
+
+services:
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redisinsight
+    restart: unless-stopped
+    environment:
+      REDIS_INSIGHT_PORT: 5540
+    volumes:
+      - redisinsight-data:/data
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "proxy"
+      traefik.http.routers.redisinsight.rule: "Host(`redis.example.com`)"
+      traefik.http.routers.redisinsight.entrypoints: "websecure"
+      traefik.http.routers.redisinsight.middlewares: "secure-headers@file"
+      traefik.http.services.redisinsight.loadbalancer.server.port: "5540"
+    logging:
+      driver: json-file
+      options: {max-size: "50m", max-file: "2"}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - proxy
+      - myapp
+      # Add more app networks as needed:
+      # - shop
+      # - cms
+
+volumes:
+  redisinsight-data:
+    name: redisinsight-data
+
+networks:
+  proxy:
+    external: true
+  myapp:
+    external: true

@@ -1,0 +1,38 @@
+# Redis Cache / Broker
+# Deploy as Komodo Stack. Set env vars in Komodo UI.
+#
+# Before pasting into Komodo:
+#   Replace APP_NAME with your app name (e.g., myapp, shop, cms)
+
+services:
+  APP_NAME-redis:
+    image: redis:8.6.2-alpine3.23
+    container_name: APP_NAME-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory ${REDIS_MAXMEMORY:-256mb} --maxmemory-policy allkeys-lru
+    expose:
+      - "6379"
+    volumes:
+      - APP_NAME-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options: {max-size: "50m", max-file: "2"}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - APP_NAME
+
+volumes:
+  APP_NAME-redis:
+    name: APP_NAME-redis
+
+networks:
+  APP_NAME:
+    external: true

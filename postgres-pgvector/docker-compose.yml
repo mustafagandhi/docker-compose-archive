@@ -1,0 +1,46 @@
+# PostgreSQL + pgvector (vector embeddings support)
+# Deploy as Komodo Stack. Set env vars in Komodo UI.
+#
+# Before pasting into Komodo:
+#   Replace APP_NAME with your app name (e.g., myapp, shop, cms)
+#
+# Image: pgvector/pgvector:0.8.2-pg18-bookworm
+#   PostgreSQL 18 with pgvector 0.8.2 pre-installed.
+#   Note: Alpine builds not available — using Debian bookworm.
+#   Enable extension: CREATE EXTENSION IF NOT EXISTS vector;
+
+services:
+  APP_NAME-postgres:
+    image: pgvector/pgvector:0.8.2-pg18-bookworm
+    container_name: APP_NAME-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - APP_NAME-pgdata:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options: {max-size: "50m", max-file: "3"}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - APP_NAME
+
+volumes:
+  APP_NAME-pgdata:
+    name: APP_NAME-pgdata
+
+networks:
+  APP_NAME:
+    external: true

@@ -1,0 +1,41 @@
+# PostgreSQL Database (standard, no extensions)
+# Deploy as Komodo Stack. Set env vars in Komodo UI.
+#
+# Before pasting into Komodo:
+#   Replace APP_NAME with your app name (e.g., myapp, shop, cms)
+
+services:
+  APP_NAME-postgres:
+    image: postgres:18.3-alpine3.23
+    container_name: APP_NAME-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - APP_NAME-pgdata:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options: {max-size: "50m", max-file: "3"}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - APP_NAME
+
+volumes:
+  APP_NAME-pgdata:
+    name: APP_NAME-pgdata
+
+networks:
+  APP_NAME:
+    external: true

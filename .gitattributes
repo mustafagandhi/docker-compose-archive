@@ -1,0 +1,9 @@
+# Default: let git normalize text files
+* text=auto
+
+# Shell scripts must always be LF — CRLF breaks #!/bin/bash on Linux
+*.sh text eol=lf
+
+# Compose/YAML: LF is safest for Linux servers consuming these files
+*.yml text eol=lf
+*.yaml text eol=lf

@@ -1,0 +1,45 @@
+# MongoDB 8 (document store)
+# Deploy as Komodo Stack. Set env vars in Komodo UI.
+#
+# Before pasting into Komodo:
+#   Replace APP_NAME with your app name (e.g., myapp, shop, cms)
+#
+# Image: mongo:8
+#   MongoDB 8.x Community Edition.
+#   No auth by default — bind to internal network only.
+
+services:
+  APP_NAME-mongo:
+    image: mongo:8
+    container_name: APP_NAME-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: ${DB_NAME:-myapp}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-myapp}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?MONGO_PASSWORD must be set}
+    volumes:
+      - APP_NAME-mongodata:/data/db
+    expose:
+      - "27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options: {max-size: "50m", max-file: "3"}
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    networks:
+      - APP_NAME
+
+volumes:
+  APP_NAME-mongodata:
+    name: APP_NAME-mongodata
+
+networks:
+  APP_NAME:
+    external: true
